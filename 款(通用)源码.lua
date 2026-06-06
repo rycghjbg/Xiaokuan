@@ -29,7 +29,7 @@ local function continueStartup()
     local libraryLoaded = false
     task.spawn(function()
         local success, result = pcall(function()
-            return loadstring(game:HttpGet("https://raw.githubusercontent.com/fhjhcfhhj/probable-happiness/refs/heads/main/VIP_Fenglib(2).lua"))()
+            return loadstring(game:HttpGet("https://raw.githubusercontent.com/fhjhcfhhj/probable-happiness/refs/heads/main/VIP_Fenglib%282%29.lua"))()
         end)
         if success then preloadedLibrary = result end
         libraryLoaded = true
@@ -145,8 +145,22 @@ local function continueStartup()
         tweenToCyan:Play()
     end)
 
+    -- 修复音乐等待：带超时，避免永久卡死
     if sound then
-        pcall(function() sound.Ended:Wait() end)
+        -- 等待音乐实际开始播放，最多等 2 秒
+        local startWait = 0
+        while not sound.IsPlaying and startWait < 2 do
+            task.wait(0.1)
+            startWait = startWait + 0.1
+        end
+        -- 如果已经在播放，最多再等 8 秒，然后强制继续
+        if sound.IsPlaying then
+            local playWait = 0
+            while sound.IsPlaying and playWait < 8 do
+                task.wait(0.1)
+                playWait = playWait + 0.1
+            end
+        end
     end
 
     animGui:Destroy()
@@ -220,7 +234,7 @@ function loadMainScript(preloadedLib)
         library = preloadedLib
     else
         local success, err = pcall(function()
-            library = loadstring(game:HttpGet("https://raw.githubusercontent.com/fhjhcfhhj/probable-happiness/refs/heads/main/VIP_Fenglib(2).lua"))()
+            library = loadstring(game:HttpGet("https://raw.githubusercontent.com/fhjhcfhhj/probable-happiness/refs/heads/main/VIP_Fenglib%282%29.lua"))()
         end)
         if not success or not library then
             warn("库加载失败: " .. tostring(err))
@@ -639,13 +653,11 @@ end})
         if jumpEnabled then task.wait(); local hum = char:FindFirstChildOfClass("Humanoid"); if hum then hum.JumpPower = jumpValue end end
     end)
     
-    sectionCommon:Toggle("改速度", false, function(v) speedEnabled = v; updateFeatureHeartbeat()
-end)
+    sectionCommon:Toggle("改速度", false, function(v) speedEnabled = v; updateFeatureHeartbeat() end)
     
     sectionCommon:Slider("速度数值", 0, 500, 16, function(v) speedValue = v; if speedEnabled and LocalPlayer.Character then local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid"); if hum then hum.WalkSpeed = v end end end)
     
-    sectionCommon:Toggle("改跳跃", false, function(v) jumpEnabled = v; updateFeatureHeartbeat()
-end)
+    sectionCommon:Toggle("改跳跃", false, function(v) jumpEnabled = v; updateFeatureHeartbeat() end)
     
     sectionCommon:Slider("跳跃高度", 0, 500, 50, function(v) jumpValue = v; if jumpEnabled and LocalPlayer.Character then local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid"); if hum then hum.JumpPower = v end end end)
 
@@ -720,8 +732,7 @@ end)
     sectionAim:Button("阿尔宙斯同款自瞄", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/dingding123hhh/sgbs/main/%E4%B8%81%E4%B8%81%20%E6%B1%89%E5%8C%96%E8%87%AA%E7%9E%84.txt"))()
 end)
     
-    sectionAim:Toggle("自瞄（瞄准头部）", false, function(v) aimEnabled = v; updateFeatureHeartbeat()
-end)
+    sectionAim:Toggle("自瞄（瞄准头部）", false, function(v) aimEnabled = v; updateFeatureHeartbeat() end)
 
     local sectionFling = tabCommon:Section("甩飞区域", {Y = "113899846067098", F = "113899846067098"}, true)
     local antiKnockbackEnabled = false
@@ -770,8 +781,6 @@ end)
    sectionFun2:Button("打架(R6)", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-no-more-games-tool-not-fe-80285"))()
 end)
 
-nd)
-    
     sectionFun2:Button("前后空翻动作", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/ke9460394-dot/ugik/refs/heads/main/%E5%89%8D%E5%90%8E%E7%A9%BA%E7%BF%BB.txt"))()
 end)
     
@@ -810,8 +819,6 @@ end)
           sectionTransform:Button("John Doe脚本生成器有动作（只支持R6形象）", function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Function/refs/heads/main/john%20Doe.lua"))()
     end)
-
-
 
     local tabMusic = Window:Tab("音乐", "98485449573808")
     local currentSound
