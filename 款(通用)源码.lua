@@ -43,11 +43,11 @@ local function continueStartup()
     local card = Instance.new("Frame")
     card.Size = UDim2.new(0, 0, 0, 100)
     card.AnchorPoint = Vector2.new(0.5, 0.5)
-    card.Position = UDim2.new(0.5, 0, 0.45, 0)   
+    card.Position = UDim2.new(0.5, 0, 0.45, 0)
     card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     card.BorderSizePixel = 0
     card.BackgroundTransparency = 0.1
-    card.ClipsDescendants = true               
+    card.ClipsDescendants = true
     card.Parent = animGui
 
     local cardCorner = Instance.new("UICorner")
@@ -122,7 +122,7 @@ local function continueStartup()
     pcall(function()
         local tweenCard = TweenService:Create(card, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, 300, 0, 100),
-            Position = UDim2.new(0.5, 0, 0.45, 0)   
+            Position = UDim2.new(0.5, 0, 0.45, 0)
         })
         tweenCard:Play()
     end)
@@ -145,31 +145,16 @@ local function continueStartup()
         tweenToCyan:Play()
     end)
 
-    -- 修复音乐等待：带超时，避免永久卡死
-    if sound then
-        -- 等待音乐实际开始播放，最多等 2 秒
-        local startWait = 0
-        while not sound.IsPlaying and startWait < 2 do
-            task.wait(0.1)
-            startWait = startWait + 0.1
-        end
-        -- 如果已经在播放，最多再等 8 秒，然后强制继续
-        if sound.IsPlaying then
-            local playWait = 0
-            while sound.IsPlaying and playWait < 8 do
-                task.wait(0.1)
-                playWait = playWait + 0.1
-            end
-        end
+    local maxWait = 30   
+    local waited = 0
+    while waited < maxWait do
+        local musicDone = not sound or not sound.IsPlaying
+        if musicDone and libraryLoaded then break end
+        task.wait(0.05)  
+        waited = waited + 0.05
     end
 
     animGui:Destroy()
-
-    local waited = 0
-    while not libraryLoaded and waited < 3 do
-        task.wait(0.1)
-        waited = waited + 0.1
-    end
 
     if sound then
         pcall(function() sound:Stop() end)
@@ -268,8 +253,8 @@ function loadMainScript(preloadedLib)
         Keybind = Enum.KeyCode.RightShift,
         Icon = 80732857736726,
         Theme = "Dark",
-        Background = "https://raw.githubusercontent.com/rycghjbg/refactored-octo-spoon/refs/heads/main/Image_1780492829762_461.jpg"
-})
+        Background = "https://raw.githubusercontent.com/rycghjbg/Xiaokuan/refs/heads/main/Image_1780765266983_119.jpg"
+    })
 
     task.wait(0.3)
     pcall(function()
@@ -584,6 +569,7 @@ function loadMainScript(preloadedLib)
         if count >= totalProfileCount then triggerEasterEgg() end
     end
 
+    
     sectionProfile:Image({Title = "付款", Subtitle = "款脚本作者", Description = {"身份：小款没吃饱", "Q群：1087878073", "我真求你了"}, Icon = "rbxassetid://72464253114782", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了付款的资料", "Info", 2) onProfileClick("付款")
 end})
     
@@ -599,8 +585,7 @@ end})
     sectionProfile:Image({Title = "小汪", Subtitle = "管理员", Description = {"身份：小汪", "小汪牛逼", "Xiaowangnb666"}, Icon = "rbxassetid://111514022930794", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了小汪的资料", "Info", 2) onProfileClick("小汪")
 end})
     
-    sectionProfile:Image({Title = "奕夕", Subtitle = "测试人员", Description = {"身份：虚荣屠夫", "他们说我的饥饿是个问题", "事情变得开始有趣起来了"}, Icon = "rbxassetid://133051318196418", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了奕夕的资料", "Info", 2) onProfileClick("奕夕")
-end})
+    sectionProfile:Image({Title = "奕夕", Subtitle = "测试人员", Description = {"身份：虚荣屠夫", "他们说我的饥饿是个问题", "事情变得开始有趣起来了"}, Icon = "rbxassetid://133051318196418", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了奕夕的资料", "Info", 2) onProfileClick("奕夕") end})
     
     sectionProfile:Image({Title = "只爱", Subtitle = "测试人员", Description = {"身份：奶烙", "小只爱", "3f"}, Icon = "rbxassetid://106483682176624", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了只爱的资料", "Info", 2) onProfileClick("只爱")
 end})
@@ -654,16 +639,13 @@ end})
     end)
     
     sectionCommon:Toggle("改速度", false, function(v) speedEnabled = v; updateFeatureHeartbeat() end)
-    
     sectionCommon:Slider("速度数值", 0, 500, 16, function(v) speedValue = v; if speedEnabled and LocalPlayer.Character then local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid"); if hum then hum.WalkSpeed = v end end end)
-    
     sectionCommon:Toggle("改跳跃", false, function(v) jumpEnabled = v; updateFeatureHeartbeat() end)
-    
     sectionCommon:Slider("跳跃高度", 0, 500, 50, function(v) jumpValue = v; if jumpEnabled and LocalPlayer.Character then local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid"); if hum then hum.JumpPower = v end end end)
 
     local sectionCommon2 = tabCommon:Section("通用功能", {Y = "89197120299249", F = "89197120299249"}, true)
     
-    sectionCommon2:Button("款飞行", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/fhjhcfhhj/improved-sy/refs/heads/main/%E6%AE%BA%E9%A3%9E%E8%A1%8C.lua"))()
+    sectionCommon2:Button("款飞行", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/fhjhcfhhj/improved-sy/refs/heads/main/%E6%9D%80%E9%A3%9E%E8%A1%8C.lua"))()
 end)
 
     local sectionESP = tabCommon:Section("透视", {Y = "124176090938155", F = "124176090938155"}, true)
@@ -701,28 +683,25 @@ end)
             if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
         end
     end)
-    sectionCommon2:Toggle("无限跳", false, function(v) infiniteJumpEnabled = v end)
+    sectionCommon2:Toggle("无限跳", false, function(v) infiniteJumpEnabled = v
+end)
 
+    
     sectionCommon2:Button("死亡笔记", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/dingding123hhh/tt/main/%E6%AD%BB%E4%BA%A1%E7%AC%94%E8%AE%B0%20(1).txt"))()
 end)
     
-    sectionCommon2:Button("自死", function() if LocalPlayer.Character then local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid"); if hum then hum.Health = 0 end end 
+    sectionCommon2:Button("自死", function() if LocalPlayer.Character then local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid"); if hum then hum.Health = 0 end end
 end)
     
-    sectionCommon2:Button("踏空行走", function() loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/Test4/main/Float'))()
-end)
-    
+    sectionCommon2:Button("踏空行走", function() loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/Test4/main/Float'))() end)
     sectionCommon2:Button("视角可提超广角", function() workspace.CurrentCamera.FieldOfView = 100
 end)
     
     sectionCommon2:Button("铁拳", function() loadstring(game:HttpGet('https://raw.githubusercontent.com/0Ben1/fe/main/obf_rf6iQURzu1fqrytcnLBAvW34C9N55kS9g9G3CKz086rC47M6632sEd4ZZYB0AYgV.lua.txt'))()
 end)
     
-    sectionCommon2:Toggle("反挂机", false, function(v) if v then loadstring(game:HttpGet("https://pastebin.com/raw/9fFu43FF"))() end
-end)
-    
-    sectionCommon2:Button("汉化", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Wlzhmaa/UWU/refs/heads/main/Chinese%20translation"))()
-end)
+    sectionCommon2:Toggle("反挂机", false, function(v) if v then loadstring(game:HttpGet("https://pastebin.com/raw/9fFu43FF"))() end end)
+    sectionCommon2:Button("汉化", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Wlzhmaa/UWU/refs/heads/main/Chinese%20translation"))() end)
     
     sectionCommon2:Button("汉化Dex", function() loadstring(game:HttpGet("https://gitee.com/cmbhbh/cmbh/raw/master/Bex.lua"))()
 end)
@@ -731,7 +710,6 @@ end)
     
     sectionAim:Button("阿尔宙斯同款自瞄", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/dingding123hhh/sgbs/main/%E4%B8%81%E4%B8%81%20%E6%B1%89%E5%8C%96%E8%87%AA%E7%9E%84.txt"))()
 end)
-    
     sectionAim:Toggle("自瞄（瞄准头部）", false, function(v) aimEnabled = v; updateFeatureHeartbeat() end)
 
     local sectionFling = tabCommon:Section("甩飞区域", {Y = "113899846067098", F = "113899846067098"}, true)
@@ -749,20 +727,17 @@ end)
     sectionFling:Button("甩飞(先开飞行再开)", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/dingding123hhh/tt/main/%E6%97%8B%E8%BD%AC.lua"))()
 end)
     
-    sectionFling:Toggle("甩飞所有人", false, function(v) if v then loadstring(game:HttpGet("https://pastebin.com/raw/zqyDSUWX"))() end 
+    sectionFling:Toggle("甩飞所有人", false, function(v) if v then loadstring(game:HttpGet("https://pastebin.com/raw/zqyDSUWX"))() end
 end)
 
     local tabFun = Window:Tab("娱乐(FE)", "117911709021357")
     local sectionFun = tabFun:Section("FE以及娱乐功能", {Y = "113580079129703", F = "113580079129703"}, true)
-    
-    sectionFun:Button("C00lgui", function() loadstring(game:GetObjects("rbxassetid://8127297852")[1].Source)() 
-end)
+    sectionFun:Button("C00lgui", function() loadstring(game:GetObjects("rbxassetid://8127297852")[1].Source)() end)
     
     sectionFun:Button("可口可乐", function()  loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Coca-Cola-Tool-34866"))()
 end)
     
-    sectionFun:Button("M 47", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/sinret/rbxscript.com-scripts-reuploads-/main/ak47", true))()
-end)
+    sectionFun:Button("M 47", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/sinret/rbxscript.com-scripts-reuploads-/main/ak47", true))() end)
     
     sectionFun:Button("电脑键盘", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/advxzivhsjjdhxhsidifvsh/mobkeyboard/main/main.txt", true))()
 end)
@@ -772,22 +747,22 @@ end)
     
     sectionFun:Button("光剑", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Crucible-Sword-only-R6-87032"))()
 end)
-    
+
     local sectionFun2 = tabFun:Section("动作类", {Y = "101403657260817", F = "101403657260817"}, true)
     
     sectionFun2:Button("动作", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-7yd7-I-Emote-Script-48024"))()
 end)
-   
-   sectionFun2:Button("打架(R6)", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-no-more-games-tool-not-fe-80285"))()
+    
+    sectionFun2:Button("打架(R6)", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-no-more-games-tool-not-fe-80285"))()
 end)
-
+    
     sectionFun2:Button("前后空翻动作", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/ke9460394-dot/ugik/refs/heads/main/%E5%89%8D%E5%90%8E%E7%A9%BA%E7%BF%BB.txt"))()
 end)
     
     sectionFun2:Button("全能侠", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/giobolqvi1/Omni-man-fly-by-GioBolqv1/refs/heads/main/omniman.lua"))()
 end)
     
-    sectionFun2:Button("祖国人", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/giobolqvi1/homelander-by-GioBolqv1/refs/heads/main/homelander.lua"))()
+    sqectionFun2:Button("祖国人", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/giobolqvi1/homelander-by-GioBolqv1/refs/heads/main/homelander.lua"))()
 end)
     
     sectionFun2:Button("撸管R15", function() loadstring(game:HttpGet("https://pastefy.app/YZoglOyJ/raw"))()
@@ -800,25 +775,21 @@ end)
 end)
 
     local sectionTransform = tabFun:Section("变身区", {Y = "100730903157896", F = "100730903157896"}, true)
-    sectionTransform:Button("Hacklord魔王", function()
-        loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-1x1x1x1-lord-by-White-Hat-71150"))()
-    end)
     
-          sectionTransform:Button("史蒂夫（只支持R6形象）", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/SCRIPTS/refs/heads/main/Steve"))()
-    end)
-
-          sectionTransform:Button("人形汽车(变车)", function()
-       loadstring(game:HttpGet("https://pastefy.app/UqDEIOpO/raw"))()
-    end)
-
-          sectionTransform:Button("John Doe[脚本生成器]（只支持R6形象）", function()
-        loadstring(game:HttpGet("https://pastebin.com/raw/mMCS4Zne"))()
-    end)
-
-          sectionTransform:Button("John Doe脚本生成器有动作（只支持R6形象）", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Function/refs/heads/main/john%20Doe.lua"))()
-    end)
+    sectionTransform:Button("Hacklord魔王", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-1x1x1x1-lord-by-White-Hat-71150"))()
+end)
+    
+    sectionTransform:Button("史蒂夫（只支持R6形象）", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/SCRIPTS/refs/heads/main/Steve"))()
+end)
+    
+    sectionTransform:Button("人形汽车(变车)", function() loadstring(game:HttpGet("https://pastefy.app/UqDEIOpO/raw"))() 
+end)
+    
+    sectionTransform:Button("John Doe[脚本生成器]（只支持R6形象）", function() loadstring(game:HttpGet("https://pastebin.com/raw/mMCS4Zne"))()
+end)
+    
+    sectionTransform:Button("John Doe脚本生成器有动作（只支持R6形象）", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Function/refs/heads/main/john%20Doe.lua"))()
+end)
 
     local tabMusic = Window:Tab("音乐", "98485449573808")
     local currentSound
@@ -880,23 +851,20 @@ end)
     sectionOther:Button("叶脚本", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/roblox-ye/QQ515966991/refs/heads/main/ROBLOX-CNVIP-XIAOYE.lua"))()
 end)
     
-    sectionOther:Button("落叶中心", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/krlpl/Deciduous-center-LS/main/%E8%90%BD%E5%8F%B6%E4%B8%AD%E5%BF%83%E6%B7%B7%E6%B7%86.txt"))()
-end)
-    
-    sectionOther:Button("(殺)通用", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/_Hub_/refs/heads/X/sha.lua"))()
-end)
+    sectionOther:Button("落叶中心", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/krlpl/Deciduous-center-LS/main/%E8%90%BD%E5%8F%B6%E4%B8%AD%E5%BF%83%E6%B7%B7%E6%B7%86.txt"))() end)
+    sectionOther:Button("(殺)通用", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/_Hub_/refs/heads/X/sha.lua"))() end)
     local sectionSpecial = tabOtherScripts:Section("殺脚本", {Y = "84848865030433", F = "84848865030433"}, true)
     
     sectionSpecial:Button("(殺)被遗弃", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/fsk.lua"))()
 end)
     
-    sectionSpecial:Button("(殺)成果记忆", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/OM.lua"))() 
+    sectionSpecial:Button("(殺)成果记忆", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/OM.lua"))()
 end)
     
     sectionSpecial:Button("(殺)撕咬之夜", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/BBN.lua"))()
 end)
     
-    sectionSpecial:Button("(殺)死亡之死", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/DOD.lua"))() 
+    sectionSpecial:Button("(殺)死亡之死", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/DOD.lua"))()
 end)
 
     local tabConfig = Window:Tab("配置管理")
