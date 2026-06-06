@@ -776,9 +776,6 @@ end)
     sectionFun2:Button("前后空翻动作", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/ke9460394-dot/ugik/refs/heads/main/%E5%89%8D%E5%90%8E%E7%A9%BA%E7%BF%BB.txt"))()
 end)
     
-    sectionFun2:Button("祖国人", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/giobolqvvi1/homelander-by-GioBolqv1/refs/heads/main/homelander.lua"))()
-end)
-    
     sectionFun2:Button("撸管R15", function() loadstring(game:HttpGet("https://pastefy.app/YZoglOyJ/raw"))()
 end)
     
