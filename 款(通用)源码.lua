@@ -174,7 +174,8 @@ function loadMainScript(preloadedLib)
         "KuaishouKuan2",
         "114514haq", 
         "1qaz2wsx_161 ",
-        "ma107133", 
+        "ma107133",
+        "niuit456j", 
         "DPYfish"
     }
     local authorList = {
