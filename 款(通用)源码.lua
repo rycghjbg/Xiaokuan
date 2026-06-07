@@ -432,9 +432,10 @@ function loadMainScript(preloadedLib)
         end)
     end
 
+    -- ==================== 透视模块（修复版）====================
     local espHighlightEnabled = false
-    local showNames = true
-    local showHealth = true
+    local showNames = false  -- 默认关闭
+    local showHealth = false -- 默认关闭
     local infiniteJumpEnabled = false
     local espCache = {}
     local playerAddedConn, playerRemovingConn
@@ -448,22 +449,32 @@ function loadMainScript(preloadedLib)
 
     local function createESPForPlayer(player)
         if espCache[player] then return end
+        
+        local data = {connections = {}}
+        espCache[player] = data
+        
         local function onCharacterAdded(character)
-            local old = espCache[player]
-            if old then
-                if old.highlight then pcall(function() old.highlight:Destroy() end) end
-                if old.billboard then pcall(function() old.billboard:Destroy() end) end
-                if old.connections then
-                    for _, conn in ipairs(old.connections) do
-                        if conn then pcall(function() conn:Disconnect() end) end
-                    end
-                end
+            -- 先清理旧的
+            if data.highlight then
+                pcall(function() data.highlight:Destroy() end)
+                data.highlight = nil
             end
+            if data.billboard then
+                pcall(function() data.billboard.Parent = nil end)
+                pcall(function() data.billboard:Destroy() end)
+                data.billboard = nil
+            end
+            for _, conn in ipairs(data.connections) do
+                if conn then pcall(function() conn:Disconnect() end) end
+            end
+            data.connections = {}
+            
             local humanoid = character:WaitForChild("Humanoid", 5)
             if not humanoid then return end
             local head = character:WaitForChild("Head", 5)
             if not head then return end
-            local data = {connections = {}}
+            
+            -- 高亮
             if espHighlightEnabled then
                 local highlight = Instance.new("Highlight")
                 highlight.Name = "ESP_Highlight"
@@ -474,69 +485,158 @@ function loadMainScript(preloadedLib)
                 highlight.Parent = character
                 data.highlight = highlight
             end
-            if showNames or showHealth then
-                local billboard = Instance.new("BillboardGui")
-                billboard.Name = "ESP_Billboard"
-                billboard.Adornee = head
-                billboard.Size = UDim2.new(0, 120, 0, 30)
-                billboard.StudsOffset = Vector3.new(0, 1.5, 0)
-                billboard.AlwaysOnTop = true
-                billboard.Parent = head
-                local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(1,0,1,0)
-                label.BackgroundTransparency = 1
-                label.TextColor3 = Color3.fromRGB(255,255,255)
-                label.TextStrokeTransparency = 0
-                label.Font = Enum.Font.SourceSansBold
-                label.TextSize = 10
-                label.TextScaled = false
-                label.Parent = billboard
-                local function update()
-                    if humanoid and humanoid.Parent and head and head.Parent then
-                        local textParts = {}
-                        if showNames then table.insert(textParts, getPlayerDisplayName(player)) end
-                        if showHealth then table.insert(textParts, string.format("%d/%d", math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))) end
+            
+            -- 名牌
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESP_Billboard"
+            billboard.Adornee = head
+            billboard.Size = UDim2.new(0, 120, 0, 30)
+            billboard.StudsOffset = Vector3.new(0, 1.5, 0)
+            billboard.AlwaysOnTop = true
+            billboard.Enabled = false  -- 默认隐藏！
+            billboard.Parent = head
+            
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1,0,1,0)
+            label.BackgroundTransparency = 1
+            label.TextColor3 = Color3.fromRGB(255,255,255)
+            label.TextStrokeTransparency = 0
+            label.Font = Enum.Font.SourceSansBold
+            label.TextSize = 10
+            label.Visible = false  -- 默认隐藏！
+            label.Parent = billboard
+            
+            data.billboard = billboard
+            data.label = label
+            
+            local function update()
+                if humanoid and humanoid.Parent and head and head.Parent and label and label.Parent then
+                    local textParts = {}
+                    if showNames then 
+                        table.insert(textParts, getPlayerDisplayName(player)) 
+                    end
+                    if showHealth then 
+                        table.insert(textParts, string.format("%d/%d", math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))) 
+                    end
+                    
+                    if #textParts > 0 then
                         label.Text = table.concat(textParts, "\n")
-                        label.Visible = (#textParts > 0)
+                        label.Visible = true
+                        billboard.Enabled = true
+                    else
+                        label.Visible = false
+                        billboard.Enabled = false
                     end
                 end
-                update()
-                table.insert(data.connections, humanoid.HealthChanged:Connect(update))
-                data.billboard = billboard
             end
-            espCache[player] = data
+            
+            update()
+            table.insert(data.connections, humanoid.HealthChanged:Connect(update))
         end
-        if player.Character then onCharacterAdded(player.Character) end
-        local charConn = player.CharacterAdded:Connect(onCharacterAdded)
-        if espCache[player] then espCache[player].charConnection = charConn else espCache[player] = {charConnection = charConn} end
+        
+        if player.Character then
+            onCharacterAdded(player.Character)
+        end
+        data.charConnection = player.CharacterAdded:Connect(onCharacterAdded)
     end
 
-    local function removeESP(player)
+    local function removeESPFromPlayer(player)
         local data = espCache[player]
         if not data then return end
-        if data.charConnection then pcall(function() data.charConnection:Disconnect() end) end
-        if data.connections then for _, conn in ipairs(data.connections) do if conn then pcall(function() conn:Disconnect() end) end end end
-        if data.highlight then pcall(function() data.highlight:Destroy() end) end
-        if data.billboard then pcall(function() data.billboard:Destroy() end) end
+        
+        if data.charConnection then
+            pcall(function() data.charConnection:Disconnect() end)
+            data.charConnection = nil
+        end
+        for _, conn in ipairs(data.connections) do
+            if conn then pcall(function() conn:Disconnect() end) end
+        end
+        data.connections = {}
+        
+        if data.highlight then
+            pcall(function() data.highlight:Destroy() end)
+            data.highlight = nil
+        end
+        if data.billboard then
+            pcall(function() data.billboard.Parent = nil end)
+            pcall(function() data.billboard:Destroy() end)
+            data.billboard = nil
+        end
+        data.label = nil
+        
         espCache[player] = nil
     end
 
     local function rebuildAllESP()
-        for player, _ in pairs(espCache) do removeESP(player) end
-        espCache = {}
-        if espHighlightEnabled or showNames or showHealth then
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer then createESPForPlayer(player) end
+        -- 如果所有开关都关了，清空一切
+        if not espHighlightEnabled and not showNames and not showHealth then
+            for player, _ in pairs(espCache) do
+                removeESPFromPlayer(player)
             end
-            if playerAddedConn then playerAddedConn:Disconnect() end
-            if playerRemovingConn then playerRemovingConn:Disconnect() end
+            if playerAddedConn then playerAddedConn:Disconnect(); playerAddedConn = nil end
+            if playerRemovingConn then playerRemovingConn:Disconnect(); playerRemovingConn = nil end
+            return
+        end
+        
+        -- 刷新现有名牌文字
+        for player, data in pairs(espCache) do
+            if data.label and data.billboard then
+                local char = player.Character
+                if char then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    local head = char:FindFirstChild("Head")
+                    if hum and head then
+                        local textParts = {}
+                        if showNames then table.insert(textParts, getPlayerDisplayName(player)) end
+                        if showHealth then table.insert(textParts, string.format("%d/%d", math.floor(hum.Health), math.floor(hum.MaxHealth))) end
+                        
+                        if #textParts > 0 then
+                            data.label.Text = table.concat(textParts, "\n")
+                            data.label.Visible = true
+                            data.billboard.Enabled = true
+                        else
+                            data.label.Visible = false
+                            data.billboard.Enabled = false
+                        end
+                    end
+                end
+            end
+            
+            -- 处理高亮
+            if espHighlightEnabled then
+                if not data.highlight and player.Character then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "ESP_Highlight"
+                    highlight.Adornee = player.Character
+                    highlight.FillTransparency = 1
+                    highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+                    highlight.OutlineTransparency = 0
+                    highlight.Parent = player.Character
+                    data.highlight = highlight
+                end
+            else
+                if data.highlight then
+                    pcall(function() data.highlight:Destroy() end)
+                    data.highlight = nil
+                end
+            end
+        end
+        
+        -- 为新玩家创建ESP
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and not espCache[player] then
+                createESPForPlayer(player)
+            end
+        end
+        
+        -- 确保事件连接存在
+        if not playerAddedConn then
             playerAddedConn = Players.PlayerAdded:Connect(function(player)
                 if player ~= LocalPlayer then createESPForPlayer(player) end
             end)
-            playerRemovingConn = Players.PlayerRemoving:Connect(removeESP)
-        else
-            if playerAddedConn then playerAddedConn:Disconnect(); playerAddedConn = nil end
-            if playerRemovingConn then playerRemovingConn:Disconnect(); playerRemovingConn = nil end
+        end
+        if not playerRemovingConn then
+            playerRemovingConn = Players.PlayerRemoving:Connect(removeESPFromPlayer)
         end
     end
 
@@ -572,40 +672,29 @@ function loadMainScript(preloadedLib)
         if count >= totalProfileCount then triggerEasterEgg() end
     end
 
-    sectionProfile:Image({Title = "付款", Subtitle = "款脚本作者", Description = {"身份：小款没吃饱", "Q群：1087878073", "我真求你了"}, Icon = "rbxassetid://93885693449312", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了付款的资料", "Info", 2) onProfileClick("付款")
-end})
+    sectionProfile:Image({Title = "付款", Subtitle = "款脚本作者", Description = {"身份：小款没吃饱", "Q群：1087878073", "我真求你了"}, Icon = "rbxassetid://93885693449312", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了付款的资料", "Info", 2) onProfileClick("付款") end})
     
-    sectionProfile:Image({Title = "中皮", Subtitle = "款脚本副作者", Description = {"身份：脚本哥", "无", "无"}, Icon = "rbxassetid://83204773411249", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了中皮的资料", "Info", 2) onProfileClick("中皮")
-end})
+    sectionProfile:Image({Title = "中皮", Subtitle = "款脚本副作者", Description = {"身份：脚本哥", "无", "无"}, Icon = "rbxassetid://83204773411249", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了中皮的资料", "Info", 2) onProfileClick("中皮") end})
     
-    sectionProfile:Image({Title = "风御", Subtitle = "殺脚本作者", Description = {"身份：疯子（刺猬）", "殺脚本主群819104139", "殺脚本副群1094790583"}, Icon = "rbxassetid://74256992936432", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了殺脚本作者的资料", "Info", 2) onProfileClick("风御")
-end})
+    sectionProfile:Image({Title = "风御", Subtitle = "殺脚本作者", Description = {"身份：疯子（刺猬）", "殺脚本主群819104139", "殺脚本副群1094790583"}, Icon = "rbxassetid://74256992936432", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了殺脚本作者的资料", "Info", 2) onProfileClick("风御") end})
     
-    sectionProfile:Image({Title = "小番", Subtitle = "管理员", Description = {"身份：番茄🍅", "小番牛逼", "Xiaofannb666"}, Icon = "rbxassetid://138242046027117", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了小番的资料", "Info", 2) onProfileClick("小番")
-end})
+    sectionProfile:Image({Title = "小番", Subtitle = "管理员", Description = {"身份：番茄🍅", "小番牛逼", "Xiaofannb666"}, Icon = "rbxassetid://138242046027117", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了小番的资料", "Info", 2) onProfileClick("小番") end})
     
-    sectionProfile:Image({Title = "小汪", Subtitle = "管理员", Description = {"身份：小汪", "小汪牛逼", "Xiaowangnb666"}, Icon = "rbxassetid://111514022930794", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了小汪的资料", "Info", 2) onProfileClick("小汪")
-end})
+    sectionProfile:Image({Title = "小汪", Subtitle = "管理员", Description = {"身份：小汪", "小汪牛逼", "Xiaowangnb666"}, Icon = "rbxassetid://111514022930794", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了小汪的资料", "Info", 2) onProfileClick("小汪") end})
     
     sectionProfile:Image({Title = "奕夕", Subtitle = "测试人员", Description = {"身份：虚荣屠夫", "他们说我的饥饿是个问题", "事情变得开始有趣起来了"}, Icon = "rbxassetid://133051318196418", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了奕夕的资料", "Info", 2) onProfileClick("奕夕") end})
     
-    sectionProfile:Image({Title = "只爱", Subtitle = "测试人员", Description = {"身份：奶烙", "小只爱", "3f"}, Icon = "rbxassetid://106483682176624", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了只爱的资料", "Info", 2) onProfileClick("只爱")
-end})
+    sectionProfile:Image({Title = "只爱", Subtitle = "测试人员", Description = {"身份：奶烙", "小只爱", "3f"}, Icon = "rbxassetid://106483682176624", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了只爱的资料", "Info", 2) onProfileClick("只爱") end})
     
-    sectionProfile:Image({Title = "我是Noob", Subtitle = "管理员", Description = {"身份：Noob", "我爱脚本", "玩脚本这一块"}, Icon = "rbxassetid://118200262618824", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了我是Noob的资料", "Info", 2) onProfileClick("我是Noob")
-end})
+    sectionProfile:Image({Title = "我是Noob", Subtitle = "管理员", Description = {"身份：Noob", "我爱脚本", "玩脚本这一块"}, Icon = "rbxassetid://118200262618824", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了我是Noob的资料", "Info", 2) onProfileClick("我是Noob") end})
     
-    sectionProfile:Image({Title = "cube", Subtitle = "管理员", Description = {"身份：披萨员", "pizza！", "立方体"}, Icon = "rbxassetid://104898690520306", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了Pizza的资料", "Info", 2) onProfileClick("cube")
- end})
+    sectionProfile:Image({Title = "cube", Subtitle = "管理员", Description = {"身份：披萨员", "pizza！", "立方体"}, Icon = "rbxassetid://104898690520306", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了Pizza的资料", "Info", 2) onProfileClick("cube") end})
 
-sectionProfile:Image({Title = "菜鸟", Subtitle = "测试人员", Description = {"身份：L", "内部人员", "91"}, Icon = "rbxassetid://102223204787442", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了菜鸟的资料", "Info", 2) onProfileClick("菜鸟")
-end})
+    sectionProfile:Image({Title = "菜鸟", Subtitle = "测试人员", Description = {"身份：L", "内部人员", "91"}, Icon = "rbxassetid://102223204787442", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了菜鸟的资料", "Info", 2) onProfileClick("菜鸟") end})
 
-sectionProfile:Image({Title = "飞物dog", Subtitle = "测试人员", Description = {"身份：鸡蛋入", " Bug测试人员", "内部"}, Icon = "rbxassetid://106354832769627", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了飞物dog的资料", "Info", 2) onProfileClick("飞物dog")
-end})
+    sectionProfile:Image({Title = "飞物dog", Subtitle = "测试人员", Description = {"身份：鸡蛋入", " Bug测试人员", "内部"}, Icon = "rbxassetid://106354832769627", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了飞物dog的资料", "Info", 2) onProfileClick("飞物dog") end})
 
-sectionProfile:Image({Title = "無渡", Subtitle = "测试人员", Description = {"身份：水牛", "西斯克里夫", "猎奇"}, Icon = "rbxassetid://116072360835655", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了無渡的资料", "Info", 2) onProfileClick("無渡")
-end})
+    sectionProfile:Image({Title = "無渡", Subtitle = "测试人员", Description = {"身份：水牛", "西斯克里夫", "猎奇"}, Icon = "rbxassetid://116072360835655", IconColor = Color3.fromRGB(255,255,255), StrokeColor = Color3.fromRGB(255,215,0), Callback = function() Window:Notification("提示", "你点击了無渡的资料", "Info", 2) onProfileClick("無渡") end})
 
     local tabCommon = Window:Tab("通用", "85043685370431")
     local sectionCommon = tabCommon:Section("自身修改", {Y = "127278444393372", F = "127278444393372"}, true)
@@ -667,27 +756,8 @@ end})
 
     local sectionESP = tabCommon:Section("透视", {Y = "124176090938155", F = "124176090938155"}, true)
     sectionESP:Toggle("绿色边框", false, function(v) espHighlightEnabled = v; rebuildAllESP() end)
- sectionESP:Toggle("用户名", false, function(v) showNames = v; rebuildAllESP() end)
-sectionESP:Toggle("血量", false, function(v) showHealth = v; rebuildAllESP() end)
-local function update()
-    if humanoid and humanoid.Parent and head and head.Parent then
-        local textParts = {}
-        if showNames then 
-            table.insert(textParts, getPlayerDisplayName(player)) 
-        end
-        if showHealth then 
-            table.insert(textParts, string.format("%d/%d", math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))) 
-        end
-        label.Text = table.concat(textParts, "\n")
-        if #textParts == 0 then
-            label.Visible = false
-            billboard.Enabled = false
-        else
-            label.Visible = true
-            billboard.Enabled = true
-        end
-    end
-end
+    sectionESP:Toggle("用户名", false, function(v) showNames = v; rebuildAllESP() end)
+    sectionESP:Toggle("血量", false, function(v) showHealth = v; rebuildAllESP() end)
 
     local noclipEnabled = false
     local noclipHeartbeat, originalCollidableParts
@@ -724,26 +794,20 @@ end
     sectionCommon2:Button("死亡笔记", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/dingding123hhh/tt/main/%E6%AD%BB%E4%BA%A1%E7%AC%94%E8%AE%B0%20(1).txt"))() end)
     sectionCommon2:Button("自死", function() if LocalPlayer.Character then local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid"); if hum then hum.Health = 0 end end end)
     
-    sectionCommon2:Button("踏空行走", function() loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/Test4/main/Float'))()
-end)
+    sectionCommon2:Button("踏空行走", function() loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/Test4/main/Float'))() end)
     
-    sectionCommon2:Button("视角可提超广角", function() workspace.CurrentCamera.FieldOfView = 100
-end)
+    sectionCommon2:Button("视角可提超广角", function() workspace.CurrentCamera.FieldOfView = 100 end)
     
-    sectionCommon2:Button("铁拳", function() loadstring(game:HttpGet('https://raw.githubusercontent.com/0Ben1/fe/main/obf_rf6iQURzu1fqrytcnLBAvW34C9N55kS9g9G3CKz086rC47M6632sEd4ZZYB0AYgV.lua.txt'))()
-end)
+    sectionCommon2:Button("铁拳", function() loadstring(game:HttpGet('https://raw.githubusercontent.com/0Ben1/fe/main/obf_rf6iQURzu1fqrytcnLBAvW34C9N55kS9g9G3CKz086rC47M6632sEd4ZZYB0AYgV.lua.txt'))() end)
     
     sectionCommon2:Toggle("反挂机", false, function(v) if v then loadstring(game:HttpGet("https://pastebin.com/raw/9fFu43FF"))() end end)
     
-    sectionCommon2:Button("汉化", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Wlzhmaa/UWU/refs/heads/main/Chinese%20translation"))()
-end)
+    sectionCommon2:Button("汉化", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Wlzhmaa/UWU/refs/heads/main/Chinese%20translation"))() end)
     
-    sectionCommon2:Button("汉化Dex", function() loadstring(game:HttpGet("https://gitee.com/cmbhbh/cmbh/raw/master/Bex.lua"))()
-end)
+    sectionCommon2:Button("汉化Dex", function() loadstring(game:HttpGet("https://gitee.com/cmbhbh/cmbh/raw/master/Bex.lua"))() end)
 
     local sectionAim = tabCommon:Section("自瞄区域", {Y = "134293959597321", F = "134293959597321"}, true)
-    sectionAim:Button("阿尔宙斯同款自瞄", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/dingding123hhh/sgbs/main/%E4%B8%81%E4%B8%81%20%E6%B1%89%E5%8C%96%E8%87%AA%E7%9E%84.txt"))()
-end)
+    sectionAim:Button("阿尔宙斯同款自瞄", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/dingding123hhh/sgbs/main/%E4%B8%81%E4%B8%81%20%E6%B1%89%E5%8C%96%E8%87%AA%E7%9E%84.txt"))() end)
     
     sectionAim:Toggle("自瞄（瞄准头部）", false, function(v) aimEnabled = v; updateFeatureHeartbeat() end)
 
@@ -758,73 +822,54 @@ end)
             if LocalPlayer.Character then local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart"); if root then root.CanCollide = true end end
         end
     end)
-    sectionFling:Button("甩飞(先开飞行再开)", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/dingding123hhh/tt/main/%E6%97%8B%E8%BD%AC.lua"))()
-end)
+    sectionFling:Button("甩飞(先开飞行再开)", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/dingding123hhh/tt/main/%E6%97%8B%E8%BD%AC.lua"))() end)
     
     sectionFling:Toggle("甩飞所有人", false, function(v) if v then loadstring(game:HttpGet("https://pastebin.com/raw/zqyDSUWX"))() end end)
 
     local tabFun = Window:Tab("娱乐(FE)", "117911709021357")
     local sectionFun = tabFun:Section("FE以及娱乐功能", {Y = "113580079129703", F = "113580079129703"}, true)
     
-    sectionFun:Button("C00lgui", function() loadstring(game:GetObjects("rbxassetid://8127297852")[1].Source)()
-end)
+    sectionFun:Button("C00lgui", function() loadstring(game:GetObjects("rbxassetid://8127297852")[1].Source)() end)
     
-    sectionFun:Button("可口可乐", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Coca-Cola-Tool-34866"))()
-end)
+    sectionFun:Button("可口可乐", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Coca-Cola-Tool-34866"))() end)
     
-    sectionFun:Button("M 47", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/sinret/rbxscript.com-scripts-reuploads-/main/ak47", true))()
-end)
+    sectionFun:Button("M 47", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/sinret/rbxscript.com-scripts-reuploads-/main/ak47", true))() end)
     
-    sectionFun:Button("电脑键盘", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/advxzivhsjjdhxhsidifvsh/mobkeyboard/main/main.txt", true))()
-end)
+    sectionFun:Button("电脑键盘", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/advxzivhsjjdhxhsidifvsh/mobkeyboard/main/main.txt", true))() end)
     
-    sectionFun:Button("飞檐走壁", function() loadstring(game:HttpGet("https://pastebin.com/raw/zXk4Rq2r"))()
-end)
+    sectionFun:Button("飞檐走壁", function() loadstring(game:HttpGet("https://pastebin.com/raw/zXk4Rq2r"))() end)
     
     sectionFun:Button("光剑", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Crucible-Sword-only-R6-87032"))() end)
 
     local sectionFun2 = tabFun:Section("动作类", {Y = "101403657260817", F = "101403657260817"}, true)
     
-    sectionFun2:Button("动作", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-7yd7-I-Emote-Script-48024"))()
-end)
+    sectionFun2:Button("动作", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-7yd7-I-Emote-Script-48024"))() end)
     
-    sectionFun2:Button("打架(R6)", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-no-more-games-tool-not-fe-80285"))()
-end)
+    sectionFun2:Button("打架(R6)", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-no-more-games-tool-not-fe-80285"))() end)
     
-    sectionFun2:Button("前后空翻动作", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/ke9460394-dot/ugik/refs/heads/main/%E5%89%8D%E5%90%8E%E7%A9%BA%E7%BF%BB.txt"))()
-end)
+    sectionFun2:Button("前后空翻动作", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/ke9460394-dot/ugik/refs/heads/main/%E5%89%8D%E5%90%8E%E7%A9%BA%E7%BF%BB.txt"))() end)
     
-    sectionFun2:Button("全能侠", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/giobolqvi1/Omni-man-fly-by-GioBolqv1/refs/heads/main/omniman.lua"))()
-end)
+    sectionFun2:Button("全能侠", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/giobolqvi1/Omni-man-fly-by-GioBolqv1/refs/heads/main/omniman.lua"))() end)
     
-    sectionFun2:Button("祖国人", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/giobolqvi1/homelander-by-GioBolqv1/refs/heads/main/homelander.lua"))()
-end)
+    sectionFun2:Button("祖国人", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/giobolqvi1/homelander-by-GioBolqv1/refs/heads/main/homelander.lua"))() end)
     
-    sectionFun2:Button("撸管R15", function() loadstring(game:HttpGet("https://pastefy.app/YZoglOyJ/raw"))()
-end)
+    sectionFun2:Button("撸管R15", function() loadstring(game:HttpGet("https://pastefy.app/YZoglOyJ/raw"))() end)
     
-    sectionFun2:Button("撸管R6", function() loadstring(game:HttpGet("https://pastefy.app/wa3v2Vgm/raw"))()
-end)
+    sectionFun2:Button("撸管R6", function() loadstring(game:HttpGet("https://pastefy.app/wa3v2Vgm/raw"))() end)
     
-    sectionFun2:Button("打人", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-THE-REAL-dropkick-177199"))()
-end)
+    sectionFun2:Button("打人", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-THE-REAL-dropkick-177199"))() end)
 
     local sectionTransform = tabFun:Section("变身区", {Y = "100730903157896", F = "100730903157896"}, true)
     
-    sectionTransform:Button("Hacklord魔王", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-1x1x1x1-lord-by-White-Hat-71150"))()
-end)
+    sectionTransform:Button("Hacklord魔王", function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-1x1x1x1-lord-by-White-Hat-71150"))() end)
     
-    sectionTransform:Button("史蒂夫（只支持R6形象）", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/SCRIPTS/refs/heads/main/Steve"))()
-end)
+    sectionTransform:Button("史蒂夫（只支持R6形象）", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/SCRIPTS/refs/heads/main/Steve"))() end)
     
-    sectionTransform:Button("人形汽车(变车)", function() loadstring(game:HttpGet("https://pastefy.app/UqDEIOpO/raw"))()
-end)
+    sectionTransform:Button("人形汽车(变车)", function() loadstring(game:HttpGet("https://pastefy.app/UqDEIOpO/raw"))() end)
     
-    sectionTransform:Button("John Doe[脚本生成器]（只支持R6形象）", function() loadstring(game:HttpGet("https://pastebin.com/raw/mMCS4Zne"))()
-end)
+    sectionTransform:Button("John Doe[脚本生成器]（只支持R6形象）", function() loadstring(game:HttpGet("https://pastebin.com/raw/mMCS4Zne"))() end)
     
-    sectionTransform:Button("John Doe脚本生成器有动作（只支持R6形象）", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Function/refs/heads/main/john%20Doe.lua"))()
-end)
+    sectionTransform:Button("John Doe脚本生成器有动作（只支持R6形象）", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Function/refs/heads/main/john%20Doe.lua"))() end)
 
     local tabMusic = Window:Tab("音乐", "98485449573808")
     local currentSound
@@ -880,31 +925,23 @@ end)
     local tabOtherScripts = Window:Tab("其他脚本", "115947871467249")
     local sectionOther = tabOtherScripts:Section("通用", {Y = "129170176484820", F = "129170176484820"}, true)
     
-    sectionOther:Button("皮脚本", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/xiaopi77/xiaopi77/main/QQ1002100032-Roblox-Pi-script.lua"))()
-end)
+    sectionOther:Button("皮脚本", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/xiaopi77/xiaopi77/main/QQ1002100032-Roblox-Pi-script.lua"))() end)
     
-    sectionOther:Button("叶脚本", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/roblox-ye/QQ515966991/refs/heads/main/ROBLOX-CNVIP-XIAOYE.lua"))()
-end)
+    sectionOther:Button("叶脚本", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/roblox-ye/QQ515966991/refs/heads/main/ROBLOX-CNVIP-XIAOYE.lua"))() end)
     
-    sectionOther:Button("落叶中心", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/krlpl/Deciduous-center-LS/main/%E8%90%BD%E5%8F%B6%E4%B8%AD%E5%BF%83%E6%B7%B7%E6%B7%86.txt"))()
-end)
+    sectionOther:Button("落叶中心", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/krlpl/Deciduous-center-LS/main/%E8%90%BD%E5%8F%B6%E4%B8%AD%E5%BF%83%E6%B7%B7%E6%B7%86.txt"))() end)
     
-    sectionOther:Button("(殺)通用", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/_Hub_/refs/heads/X/sha.lua"))()
-end)
+    sectionOther:Button("(殺)通用", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/_Hub_/refs/heads/X/sha.lua"))() end)
     
     local sectionSpecial = tabOtherScripts:Section("殺脚本", {Y = "84848865030433", F = "84848865030433"}, true)
     
-    sectionSpecial:Button("(殺)被遗弃", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/fsk.lua"))()
-end)
+    sectionSpecial:Button("(殺)被遗弃", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/fsk.lua"))() end)
     
-    sectionSpecial:Button("(殺)成果记忆", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/OM.lua"))()
-end)
+    sectionSpecial:Button("(殺)成果记忆", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/OM.lua"))() end)
     
-    sectionSpecial:Button("(殺)撕咬之夜", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/BBN.lua"))()
-end)
+    sectionSpecial:Button("(殺)撕咬之夜", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/BBN.lua"))() end)
     
-    sectionSpecial:Button("(殺)死亡之死", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/DOD.lua"))()
-end)
+    sectionSpecial:Button("(殺)死亡之死", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FengYu-X/Max/refs/heads/X/DOD.lua"))() end)
 
     local tabConfig = Window:Tab("配置管理")
     local sectionConfig = tabConfig:Section("配置设置")
