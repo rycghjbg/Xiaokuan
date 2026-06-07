@@ -667,8 +667,10 @@ end})
 
     local sectionESP = tabCommon:Section("透视", {Y = "124176090938155", F = "124176090938155"}, true)
     sectionESP:Toggle("绿色边框", false, function(v) espHighlightEnabled = v; rebuildAllESP() end)
-    sectionESP:Toggle("用户名", true, function(v) showNames = v; rebuildAllESP() end)
-    sectionESP:Toggle("血量", true, function(v) showHealth = v; rebuildAllESP() end)
+    
+sectionESP:Toggle("用户名", false, function(v) showNames = v; rebuildAllESP() end)
+
+sectionESP:Toggle("血量", false, function(v) showHealth = v; rebuildAllESP() end)
 
     local noclipEnabled = false
     local noclipHeartbeat, originalCollidableParts
