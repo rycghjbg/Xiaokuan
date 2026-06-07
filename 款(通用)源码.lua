@@ -667,10 +667,27 @@ end})
 
     local sectionESP = tabCommon:Section("透视", {Y = "124176090938155", F = "124176090938155"}, true)
     sectionESP:Toggle("绿色边框", false, function(v) espHighlightEnabled = v; rebuildAllESP() end)
-    
-sectionESP:Toggle("用户名", false, function(v) showNames = v; rebuildAllESP() end)
-
+ sectionESP:Toggle("用户名", false, function(v) showNames = v; rebuildAllESP() end)
 sectionESP:Toggle("血量", false, function(v) showHealth = v; rebuildAllESP() end)
+local function update()
+    if humanoid and humanoid.Parent and head and head.Parent then
+        local textParts = {}
+        if showNames then 
+            table.insert(textParts, getPlayerDisplayName(player)) 
+        end
+        if showHealth then 
+            table.insert(textParts, string.format("%d/%d", math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))) 
+        end
+        label.Text = table.concat(textParts, "\n")
+        if #textParts == 0 then
+            label.Visible = false
+            billboard.Enabled = false
+        else
+            label.Visible = true
+            billboard.Enabled = true
+        end
+    end
+end
 
     local noclipEnabled = false
     local noclipHeartbeat, originalCollidableParts
